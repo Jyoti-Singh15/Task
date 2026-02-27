@@ -6,7 +6,7 @@ const App = () => {
     if (saved) {
       return JSON.parse(saved);
     }
-
+    return [];
   });
 
   const [newProjectName, setNewProjectName] = useState('');
