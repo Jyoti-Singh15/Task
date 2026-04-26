@@ -12,6 +12,7 @@ const App = () => {
   const [newProjectName, setNewProjectName] = useState('');
   const [newTaskInput, setNewTaskInput] = useState('');
   const [selectedProjectId, setSelectedProjectId] = useState(projects[0]?.id || null);
+  const [filter, setFilter] = useState('all');
 
   useEffect(() => {
     localStorage.setItem('internNavyProjectsData', JSON.stringify(projects));
@@ -51,13 +52,28 @@ const App = () => {
       if (project.id === selectedProjectId) {
         return {
           ...project,
-          tasks: [...project.tasks, { id: Date.now().toString(), text: newTaskInput.trim(), completed: false }]
+          tasks: [...project.tasks, { id: Date.now().toString(), text: newTaskInput.trim(), completed: false, note: '' }]
         };
       }
       return project;
     });
     setProjects(updatedProjects);
     setNewTaskInput('');
+  };
+
+  const updateTaskNote = (projectId, taskId, note) => {
+    const updatedProjects = projects.map(project => {
+      if (project.id === projectId) {
+        return {
+          ...project,
+          tasks: project.tasks.map(task =>
+            task.id === taskId ? { ...task, note } : task
+          )
+        };
+      }
+      return project;
+    });
+    setProjects(updatedProjects);
   };
 
   const toggleTask = (projectId, taskId) => {
@@ -168,17 +184,28 @@ const App = () => {
           ) : (
             <>
               <form onSubmit={handleAddTask} className="relative mb-5 shrink-0 z-10">
-                <input
-                  type="text"
+                <textarea
                   placeholder="What's the next task?"
                   value={newTaskInput}
-                  onChange={(e) => setNewTaskInput(e.target.value)}
-                  className="w-full pl-6 pr-14 py-4 bg-white border border-slate-200 rounded-2xl shadow-sm focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-400 transition-all text-[15px] font-bold placeholder:text-slate-300 text-slate-800"
+                  onChange={(e) => {
+                    setNewTaskInput(e.target.value);
+                    e.target.style.height = 'auto';
+                    e.target.style.height = e.target.scrollHeight + 'px';
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleAddTask(e);
+                      e.target.style.height = 'auto';
+                    }
+                  }}
+                  rows={1}
+                  className="w-full pl-6 pr-14 py-4 bg-white border border-slate-200 rounded-2xl shadow-sm focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-400 transition-all text-[15px] font-bold placeholder:text-slate-300 text-slate-800 resize-none overflow-hidden"
                 />
                 <button
                   type="submit"
                   disabled={!newTaskInput.trim()}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 bg-blue-100 text-blue-900 rounded-xl hover:bg-blue-900 hover:text-white disabled:opacity-40 disabled:hover:bg-blue-100 disabled:hover:text-blue-900 transition-all active:scale-95 duration-200 font-black"
+                  className="absolute right-2 bottom-2 p-2.5 bg-blue-100 text-blue-900 rounded-xl hover:bg-blue-900 hover:text-white disabled:opacity-40 disabled:hover:bg-blue-100 disabled:hover:text-blue-900 transition-all active:scale-95 duration-200 font-black"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
                     <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zM12.75 9a.75.75 0 00-1.5 0v2.25H9a.75.75 0 000 1.5h2.25V15a.75.75 0 001.5 0v-2.25H15a.75.75 0 000-1.5h-2.25V9z" clipRule="evenodd" />
@@ -186,63 +213,122 @@ const App = () => {
                 </button>
               </form>
 
+              <div className="flex gap-2 mb-5 shrink-0 overflow-x-auto no-scrollbar">
+                {['all', 'remaining', 'completed'].map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => setFilter(f)}
+                    className={`px-4 py-1.5 rounded-xl text-xs font-bold capitalize transition-all border ${filter === f
+                      ? 'bg-blue-900 border-blue-900 text-white shadow-sm'
+                      : 'bg-white border-slate-200 text-slate-500 hover:border-blue-300 hover:text-blue-800'
+                      }`}
+                  >
+                    {f}
+                  </button>
+                ))}
+              </div>
+
               <div className="flex-1 overflow-y-auto pr-2 no-scrollbar pb-2 relative z-0">
-                {selectedProject.tasks.length === 0 ? (
-                  <div className="text-center py-10 flex flex-col items-center">
-                    <p className="text-slate-500 font-medium">No tasks found. Add a task to begin.</p>
-                  </div>
-                ) : (
-                  <ul className="space-y-3">
-                    {selectedProject.tasks.map(task => (
-                      <li
-                        key={task.id}
-                        className={`group flex items-center justify-between p-4 bg-white rounded-2xl border transition-all duration-300 ${task.completed
-                          ? 'border-transparent bg-slate-100/50 opacity-70'
-                          : 'border-slate-100 shadow-sm hover:border-blue-200'
-                          }`}
-                      >
-                        <label className="flex items-center gap-4 cursor-pointer flex-1 min-w-0">
-                          <div className="relative flex items-center justify-center shrink-0">
-                            <input
-                              type="checkbox"
-                              checked={task.completed}
-                              onChange={() => toggleTask(selectedProject.id, task.id)}
-                              className="peer sr-only"
-                            />
-                            <div className={`w-7 h-7 border-2 rounded-xl bg-white transition-all duration-300 flex items-center justify-center peer-focus-visible:ring-4 peer-focus-visible:ring-blue-400/30 ${task.completed ? 'border-blue-900 bg-blue-900' : 'border-slate-300 peer-checked:bg-blue-900 peer-checked:border-blue-900 group-hover:border-blue-300'}`}>
-                              <svg
-                                className={`w-4 h-4 text-white transform transition-transform duration-300 ${task.completed ? 'scale-100' : 'scale-0'}`}
-                                xmlns="http://www.w3.org/2000/svg"
-                                viewBox="0 0 20 20"
-                                fill="currentColor"
+                {(() => {
+                  const filteredTasks = selectedProject.tasks.filter(task => {
+                    if (filter === 'completed') return task.completed;
+                    if (filter === 'remaining') return !task.completed;
+                    return true;
+                  });
+
+                  if (filteredTasks.length === 0) {
+                    return (
+                      <div className="text-center py-10 flex flex-col items-center">
+                        <p className="text-slate-500 font-medium">No {filter !== 'all' ? filter : ''} tasks found.</p>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <ul className="space-y-3">
+                      {filteredTasks.map(task => (
+                        <li
+                          key={task.id}
+                          className={`group flex flex-col p-4 bg-white rounded-2xl border transition-all duration-300 ${task.completed
+                            ? 'border-transparent bg-slate-100/50 opacity-70'
+                            : 'border-slate-100 shadow-sm hover:border-blue-200'
+                            }`}
+                        >
+                          <div className="flex items-center justify-between w-full">
+                            <label className="flex items-center gap-4 cursor-pointer flex-1 min-w-0">
+                              <div className="relative flex items-center justify-center shrink-0">
+                                <input
+                                  type="checkbox"
+                                  checked={task.completed}
+                                  onChange={() => toggleTask(selectedProject.id, task.id)}
+                                  className="peer sr-only"
+                                />
+                                <div className={`w-7 h-7 border-2 rounded-xl bg-white transition-all duration-300 flex items-center justify-center peer-focus-visible:ring-4 peer-focus-visible:ring-blue-400/30 ${task.completed ? 'border-blue-900 bg-blue-900' : 'border-slate-300 peer-checked:bg-blue-900 peer-checked:border-blue-900 group-hover:border-blue-300'}`}>
+                                  <svg
+                                    className={`w-4 h-4 text-white transform transition-transform duration-300 ${task.completed ? 'scale-100' : 'scale-0'}`}
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 20 20"
+                                    fill="currentColor"
+                                  >
+                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                  </svg>
+                                </div>
+                              </div>
+
+                              <span
+                                className={`font-semibold text-[15px] transition-all duration-300 break-words flex-1 whitespace-pre-wrap ${task.completed
+                                  ? 'text-slate-400 line-through decoration-slate-300 decoration-[2px]'
+                                  : 'text-slate-800'
+                                  }`}
                               >
-                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                {task.text}
+                              </span>
+                            </label>
+
+                            <button
+                              onClick={() => deleteTask(selectedProject.id, task.id)}
+                              className={`shrink-0 ml-3 p-2 text-slate-300 hover:text-white hover:bg-slate-400 rounded-xl transition-all duration-200 ${task.completed ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                               </svg>
-                            </div>
+                            </button>
                           </div>
 
-                          <span
-                            className={`font-semibold text-[15px] transition-all duration-300 break-words flex-1 ${task.completed
-                              ? 'text-slate-400 line-through decoration-slate-300 decoration-[2px]'
-                              : 'text-slate-800'
-                              }`}
-                          >
-                            {task.text}
-                          </span>
-                        </label>
-
-                        <button
-                          onClick={() => deleteTask(selectedProject.id, task.id)}
-                          className={`shrink-0 ml-3 p-2 text-slate-300 hover:text-white hover:bg-slate-400 rounded-xl transition-all duration-200 ${task.completed ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                          {/* Task Note Input */}
+                          <div className="mt-3 pl-11">
+                            <div className={`flex items-center gap-2 px-3 py-2 rounded-xl transition-all border ${task.completed
+                                ? 'bg-slate-50/50 border-slate-100'
+                                : 'bg-blue-50/30 border-blue-100/50 focus-within:border-blue-200 focus-within:bg-blue-50/50'
+                              }`}>
+                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={`w-3.5 h-3.5 shrink-0 ${task.completed ? 'text-slate-300' : 'text-blue-400'}`}>
+                                <path fillRule="evenodd" d="M10 2c-2.236 0-4.43.18-6.57.53a.75.75 0 00-.627.74v11.903c0 .384.273.713.648.746a41.147 41.147 0 013.693.48c.502.081.767.615.511 1.05-.277.472-.7.88-1.208 1.107a.75.75 0 00.437 1.409c1.531-.474 2.416-1.64 2.416-2.868v-1.05c0-.469.352-.886.811-.966a29.058 29.058 0 001.9-.397.75.75 0 00.511-.74V3.27a.75.75 0 00-.626-.739A41.15 41.15 0 0010 2z" clipRule="evenodd" />
+                              </svg>
+                              <textarea
+                                placeholder="Add a note..."
+                                value={task.note || ''}
+                                onChange={(e) => {
+                                  updateTaskNote(selectedProject.id, task.id, e.target.value);
+                                  e.target.style.height = 'auto';
+                                  e.target.style.height = e.target.scrollHeight + 'px';
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' && !e.shiftKey) {
+                                    e.preventDefault();
+                                    e.target.blur();
+                                  }
+                                }}
+                                rows={1}
+                                className={`w-full bg-transparent border-none p-0 text-[13px] font-bold focus:outline-none placeholder:text-slate-400 transition-all resize-none overflow-hidden whitespace-pre-wrap ${task.completed ? 'text-slate-400' : 'text-slate-700 focus:text-blue-900'
+                                  }`}
+                              />
+                            </div>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  );
+                })()}
               </div>
             </>
           )}
